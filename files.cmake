@@ -1,9 +1,29 @@
 set(SRC_FILES
     App.cpp
+    Entity/Player.cpp
+    Entity/Enemy.cpp
+    Weapon/Projectile.cpp
+    Weapon/Weapon.cpp
+    UI/HUD.cpp
+    UI/ShopScene.cpp
+    UI/StatSelectScene.cpp
+    UI/PauseMenu.cpp
+    Scene/GameScene.cpp
 )
 
 set(INCLUDE_FILES
     App.hpp
+    Core/GameConfig.hpp
+    Entity/Entity.hpp
+    Entity/Player.hpp
+    Entity/Enemy.hpp
+    Weapon/Projectile.hpp
+    Weapon/Weapon.hpp
+    UI/HUD.hpp
+    UI/ShopScene.hpp
+    UI/StatSelectScene.hpp
+    UI/PauseMenu.hpp
+    Scene/GameScene.hpp
 )
 
 set(TEST_FILES

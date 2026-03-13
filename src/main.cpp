@@ -12,6 +12,8 @@ int main(int, char**) {
                 app.Start();
                 break;
 
+            case App::State::TITLE:
+                // fall-through: title rendering is handled inside Update()
             case App::State::UPDATE:
                 app.Update();
                 break;
