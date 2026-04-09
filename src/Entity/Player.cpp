@@ -115,3 +115,18 @@ std::vector<float> Player::GetWeaponCooldownProgress() const {
     return result;
 }
 
+void Player::AddXP(int amount) {
+    m_XP += amount;
+    // 使用 while 避免一次吃太多經驗球導致需要連升兩級
+    while (m_XP >= m_MaxXP) {
+        m_XP -= m_MaxXP;
+        LevelUp();
+    }
+}
+
+void Player::LevelUp() {
+    m_Level++;
+    // 升級後增加下一級的經驗需求 (這裡設定每次需求乘上1.3倍再加10)
+    m_MaxXP = static_cast<int>(m_MaxXP * 1.3f) + 10;
+    Heal(1); // 升級時補1滴血當作小獎勵
+}

@@ -72,12 +72,73 @@ HUD::HUD() {
     m_BossHpObj = std::make_shared<Util::GameObject>(m_BossHpText, 9.5f);
     m_BossHpObj->m_Transform.translation = {0.f, -(WIN_H / 2.f - 45.f)};
     m_BossHpObj->SetVisible(false);
+
+    // m_XpBarBg = std::make_shared<Util::Image>(RESOURCE_DIR "/images/ui/hp_bar_bg.png");
+    // m_XpBgObj = std::make_shared<Util::GameObject>(m_XpBarBg, 9.f);
+    // m_XpBgObj->m_Transform.translation = {0.f, WIN_H / 2.f - 10.f}; // 靠上
+    // m_XpBgObj->m_Transform.scale = {2.0f, 0.15f}; // 拉長變細
+    //
+    // m_XpBarFill = std::make_shared<Util::Image>(RESOURCE_DIR "/images/ui/hp_bar_fill.png");
+    // m_XpFillObj = std::make_shared<Util::GameObject>(m_XpBarFill, 9.1f);
+    // m_XpFillObj->m_Transform.translation = {0.f, WIN_H / 2.f - 10.f};
+    // m_XpFillObj->m_Transform.scale = {2.0f, 0.15f};
+    //
+    // m_XpText = std::make_shared<Util::Text>(RESOURCE_DIR "/fonts/Inter.ttf", 16, "LVL 1", Util::Color::FromRGB(100, 255, 100));
+    // m_XpTextObj = std::make_shared<Util::GameObject>(m_XpText, 9.5f);
+    // m_XpTextObj->m_Transform.translation = {0.f, WIN_H / 2.f - 10.f};
+    // --- XP Bar (對齊左上角的 HP 血條下方) ---
+    m_XpBarBg = std::make_shared<Util::Image>(RESOURCE_DIR "/images/ui/hp_bar_bg.png");
+    m_XpBgObj = std::make_shared<Util::GameObject>(m_XpBarBg, 9.f);
+    m_XpBgObj->m_Transform.translation = {-WIN_W / 2.f + 160.f, WIN_H / 2.f - 55.f};
+    m_XpBgObj->m_Transform.scale = {0.5f, 0.15f};
+
+    m_XpBarFill = std::make_shared<Util::Image>(RESOURCE_DIR "/images/ui/hp_bar_fill.png");
+    m_XpFillObj = std::make_shared<Util::GameObject>(m_XpBarFill, 9.1f);
+    m_XpFillObj->m_Transform.translation = {-WIN_W / 2.f + 160.f, WIN_H / 2.f - 55.f};
+    m_XpFillObj->m_Transform.scale = {0.5f, 0.15f};
+
+    m_XpText = std::make_shared<Util::Text>(RESOURCE_DIR "/fonts/Inter.ttf", 16, "LVL 1", Util::Color::FromRGB(100, 255, 100));
+    m_XpTextObj = std::make_shared<Util::GameObject>(m_XpText, 9.5f);
+    m_XpTextObj->m_Transform.translation = {-WIN_W / 2.f + 55.f, WIN_H / 2.f - 55.f};
 }
 
 void HUD::Update(int hp, int maxHp, int gold, int wave, int totalWaves,
-                 float waveTimer) {
+                 float waveTimer,   int xp, int maxXp, int level) {
+    // --- 更新 XP 條 ---
+    float xpFrac = (maxXp > 0) ? static_cast<float>(xp) / maxXp : 0.f;
+
+    // 1. 設定基礎參數
+    float baseScaleX = 0.5f;
+    float imageWidth = 300.f; // ⚠️請把這裡換成 hp_bar_fill.png 的實際像素寬度！
+
+    // 2. 計算最大寬度與當前寬度
+    float maxBarWidth = imageWidth * baseScaleX;
+    float currentBarWidth = maxBarWidth * xpFrac;
+
+    // 3. 更新縮放
+    m_XpFillObj->m_Transform.scale.x = baseScaleX * xpFrac;
+
+    // 4. 更新座標：把中心點往左移，抵銷縮放造成的左邊界位移
+    float baseX = -WIN_W / 2.f + 160.f; // 這是你設定的初始 X 座標
+    m_XpFillObj->m_Transform.translation.x = baseX - (maxBarWidth - currentBarWidth) / 2.0f;
+
+    m_XpText->SetText("LVL " + std::to_string(level));
+    // float xpFrac = (maxXp > 0) ? static_cast<float>(xp) / maxXp : 0.f;
+    // m_XpFillObj->m_Transform.scale.x = 2.0f * xpFrac; // 注意這裡的 2.0f 要跟上面的 scale.x 一致
+    // m_XpText->SetText("LVL " + std::to_string(level));
+
+    // 👉 把這裡的 2.0f 改成 0.5f，這樣填滿時的寬度才會剛好對齊底框
+    m_XpFillObj->m_Transform.scale.x = 0.5f * xpFrac;
+
+    m_XpText->SetText("LVL " + std::to_string(level));
+
     // Scale HP bar fill proportionally
+    // --- 更新 HP 條 ---
     float hpFrac = (maxHp > 0) ? static_cast<float>(hp) / maxHp : 0.f;
+    float currentHpWidth = maxBarWidth * hpFrac; // 共用上面的 maxBarWidth 變數
+
+    m_HpFillObj->m_Transform.scale.x = baseScaleX * hpFrac;
+    m_HpFillObj->m_Transform.translation.x = baseX - (maxBarWidth - currentHpWidth) / 2.0f;
     m_HpFillObj->m_Transform.scale.x = 0.5f * hpFrac;
 
     m_HpText->SetText("HP: " + std::to_string(hp) + "/" +
@@ -94,6 +155,11 @@ void HUD::Update(int hp, int maxHp, int gold, int wave, int totalWaves,
 }
 
 void HUD::SetGameplayVisible(bool visible) {
+
+    m_XpBgObj->SetVisible(visible);
+    m_XpFillObj->SetVisible(visible);
+    m_XpTextObj->SetVisible(visible);
+
     m_HpBgObj->SetVisible(visible);
     m_HpFillObj->SetVisible(visible);
     m_HpTextObj->SetVisible(visible);
@@ -112,6 +178,10 @@ void HUD::Draw() {
     m_GoldTextObj->Draw();
     m_WaveTextObj->Draw();
     m_TimerTextObj->Draw();
+
+    m_XpBgObj -> Draw();
+    m_XpFillObj -> Draw();
+    m_XpTextObj -> Draw();
 }
 
 void HUD::ShowBossBar(const std::string &bossName) {
@@ -138,5 +208,6 @@ void HUD::UpdateBossBar(int hp, int maxHp) {
 std::vector<std::shared_ptr<Util::GameObject>> HUD::GetObjects() const {
     return {m_HpBgObj,    m_HpFillObj,   m_HpTextObj,
             m_GoldTextObj, m_WaveTextObj, m_TimerTextObj,
-            m_BossBarBg,  m_BossBarFill, m_BossNameObj, m_BossHpObj};
+            m_BossBarBg,  m_BossBarFill, m_BossNameObj, m_BossHpObj,
+            m_XpBgObj, m_XpFillObj, m_XpTextObj};
 }

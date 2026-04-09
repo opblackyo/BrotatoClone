@@ -81,10 +81,20 @@ public:
     bool  IsInvincible() const       { return m_InvFrameTimer > 0.f; }
 
     std::vector<float> GetWeaponCooldownProgress() const;
+    void AddXP(int amount);
+    void LevelUp();
+
+    int GetXP() const { return m_XP; }
+    int GetMaxXP() const { return m_MaxXP; }
+    int GetLevel() const { return m_Level; }
 
 private:
     void HandleMovement(float dt);
     void ClampToArena();
+
+    int m_XP = 0;
+    int m_MaxXP = 20; // 第一級升級需要的經驗值
+    int m_Level = 1;
 
     std::vector<std::shared_ptr<Weapon>> m_Weapons;
 

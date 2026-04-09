@@ -26,7 +26,15 @@ public:
     // Renderable objects to add to Renderer  
     std::vector<std::shared_ptr<Util::GameObject>> GetObjects() const;
 
+    void Update(int hp, int maxHp, int gold, int wave, int totalWaves, float waveTimer, int xp, int maxXp, int level);
+
 private:
+    std::shared_ptr<Util::Image> m_XpBarBg;
+    std::shared_ptr<Util::GameObject> m_XpBgObj;
+    std::shared_ptr<Util::Image> m_XpBarFill;
+    std::shared_ptr<Util::GameObject> m_XpFillObj;
+    std::shared_ptr<Util::Text> m_XpText;
+    std::shared_ptr<Util::GameObject> m_XpTextObj;
     // Labels
     std::shared_ptr<Util::Text> m_HpText;
     std::shared_ptr<Util::Text> m_GoldText;

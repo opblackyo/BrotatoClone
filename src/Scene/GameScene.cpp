@@ -669,6 +669,8 @@ void GameScene::UpdateWave(float dt) {
             orb.obj->SetVisible(false);
             m_Renderer.RemoveChild(orb.obj);
             m_Player->AddGold(orb.value);
+
+            m_Player->AddXP(orb.value);
         }
     }
     m_XpOrbs.erase(std::remove_if(m_XpOrbs.begin(), m_XpOrbs.end(),
@@ -677,7 +679,8 @@ void GameScene::UpdateWave(float dt) {
     // Update HUD
     m_HUD.Update(m_Player->GetHp(), m_Player->GetMaxHp(),
                  m_Player->GetGold(), m_CurrentWave,
-                 GameConfig::TOTAL_WAVES, m_WaveTimer);
+                 GameConfig::TOTAL_WAVES, m_WaveTimer,
+                 m_Player->GetXP(), m_Player->GetMaxXP(), m_Player->GetLevel());
 
     // Check end conditions
     if (!m_Player->IsAlive()) {
