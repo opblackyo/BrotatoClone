@@ -19,6 +19,20 @@ MakePMTxt(const std::string &font, int size, const std::string &init,
 }
 
 PauseMenu::PauseMenu() {
+    auto [vmt, vmo] = MakePMTxt(FONT_PM, 24, " < ",
+        Util::Color::FromRGB(255, 100, 100), 10.f, {-90.f, -230.f});
+    m_VolMinusText = vmt; m_VolMinusObj = vmo;
+
+    // 音量顯示文字
+    auto [vt, vo] = MakePMTxt(FONT_PM, 20, "Vol: 100%",
+        Util::Color::FromRGB(255, 255, 255), 10.f, {0.f, -230.f});
+    m_VolText = vt; m_VolObj = vo;
+
+    // 加號按鈕
+    auto [vpt, vpo] = MakePMTxt(FONT_PM, 24, " > ",
+        Util::Color::FromRGB(100, 255, 100), 10.f, {+90.f, -230.f});
+    m_VolPlusText = vpt; m_VolPlusObj = vpo;
+
     // Full-screen overlay (reuse shop background)
     m_BgObj = std::make_shared<Util::GameObject>(
         std::make_shared<Util::Image>(RESOURCE_DIR "/images/backgrounds/shop_bg.png"), 9.f);
@@ -94,6 +108,10 @@ std::vector<std::shared_ptr<Util::GameObject>> PauseMenu::GetObjects() const {
     out.push_back(m_ResumeObj);
     out.push_back(m_QuitBg);
     out.push_back(m_QuitObj);
+
+    out.push_back(m_VolMinusObj);
+    out.push_back(m_VolObj);
+    out.push_back(m_VolPlusObj);
     return out;
 }
 
@@ -150,6 +168,11 @@ void PauseMenu::Show(const Player &player,
     m_ResumeObj->SetVisible(true);
     m_QuitBg->SetVisible(true);
     m_QuitObj->SetVisible(true);
+
+    m_VolMinusObj->SetVisible(true);
+    m_VolObj->SetVisible(true);
+    m_VolPlusObj->SetVisible(true);
+
     UpdateContent(player, ownedItems, wave);
 }
 
@@ -165,6 +188,10 @@ void PauseMenu::Hide() {
     m_ResumeObj->SetVisible(false);
     m_QuitBg->SetVisible(false);
     m_QuitObj->SetVisible(false);
+
+    m_VolMinusObj->SetVisible(false);
+    m_VolObj->SetVisible(false);
+    m_VolPlusObj->SetVisible(false);
 }
 
 bool PauseMenu::IsInResume(glm::vec2 pt) const {
@@ -175,6 +202,8 @@ bool PauseMenu::IsInQuit(glm::vec2 pt) const {
 }
 
 int PauseMenu::Update() {
+
+
     if (!m_Visible) return 0;
 
     if (Util::Input::IsKeyDown(Util::Keycode::ESCAPE)) return 1; // resume
@@ -184,6 +213,20 @@ int PauseMenu::Update() {
     if (lmb) {
         if (IsInResume(mouse)) return 1;
         if (IsInQuit(mouse))   return 2;
+        if (IsInVolMinus(mouse)) return 3;
+        if (IsInVolPlus(mouse))  return 4;
     }
     return 0;
+}
+void PauseMenu::SetVolumeText(float volumeMultiplier) {
+    int percentage = static_cast<int>(volumeMultiplier * 100.0f + 0.5f);
+    m_VolText->SetText("Vol: " + std::to_string(percentage) + "%");
+}
+
+bool PauseMenu::IsInVolMinus(glm::vec2 pt) const {
+    return std::abs(pt.x - (-90.f)) < 30.f && std::abs(pt.y - (-230.f)) < 20.f;
+}
+
+bool PauseMenu::IsInVolPlus(glm::vec2 pt) const {
+    return std::abs(pt.x - (+90.f)) < 30.f && std::abs(pt.y - (-230.f)) < 20.f;
 }

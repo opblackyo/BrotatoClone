@@ -68,6 +68,11 @@ GameSceneState GameScene::Update(float dt) {
         m_State == GameSceneState::SHOPPING) {
         if (Util::Input::IsKeyDown(Util::Keycode::ESCAPE)) {
             m_PrePauseState = m_State;
+            if (m_State == GameSceneState::SHOPPING) {
+                m_ShopScene.Hide();
+            } else if (m_State == GameSceneState::STAT_SELECT) {
+                m_StatSelectScene.Close(); // StatSelect 使用 Close() 來隱藏
+            }
             m_PauseMenu.Show(*m_Player, m_OwnedItems, m_CurrentWave);
             m_State = GameSceneState::PAUSED;
             m_Renderer.Update();
@@ -141,8 +146,21 @@ GameSceneState GameScene::Update(float dt) {
         if (r == 1) {
             m_PauseMenu.Hide();
             m_State = m_PrePauseState;
+            if (m_State == GameSceneState::SHOPPING) {
+                m_ShopScene.Show(*m_Player);
+            } else if (m_State == GameSceneState::STAT_SELECT) {
+                m_StatSelectScene.Open(1);
+            }
         } else if (r == 2) {
             std::exit(0);
+        } else if (r == 3) { // 減少音量
+            m_MasterVolume = std::max(0.0f, m_MasterVolume - 0.1f);
+            UpdateVolumes();
+            m_PauseMenu.SetVolumeText(m_MasterVolume);
+        } else if (r == 4) { // 增加音量
+            m_MasterVolume = std::min(1.0f, m_MasterVolume + 0.1f);
+            UpdateVolumes();
+            m_PauseMenu.SetVolumeText(m_MasterVolume);
         }
         break;
     }
@@ -152,9 +170,10 @@ GameSceneState GameScene::Update(float dt) {
         break;
     }
 
-    const bool showGameplayHud =
-        (m_State == GameSceneState::WAVE) ||
-        (m_State == GameSceneState::PAUSED && m_PrePauseState == GameSceneState::WAVE);
+    // const bool showGameplayHud =
+    //     (m_State == GameSceneState::WAVE) ||
+    //     (m_State == GameSceneState::PAUSED && m_PrePauseState == GameSceneState::WAVE);
+    const bool showGameplayHud = (m_State == GameSceneState::WAVE);
     m_HUD.SetGameplayVisible(showGameplayHud);
 
     m_Renderer.Update();
@@ -953,4 +972,15 @@ void GameScene::SyncWeaponsToRenderer() {
     }
 }
 
+void GameScene::UpdateVolumes() {
+    m_SfxPistol->SetVolume(static_cast<int>(55 * m_MasterVolume));
+    m_SfxSMG->SetVolume(static_cast<int>(40 * m_MasterVolume));
+    m_SfxShotgun->SetVolume(static_cast<int>(58 * m_MasterVolume));
+    m_SfxKnife->SetVolume(static_cast<int>(50 * m_MasterVolume));
+    m_SfxHit->SetVolume(static_cast<int>(38 * m_MasterVolume));
+    m_SfxDie->SetVolume(static_cast<int>(52 * m_MasterVolume));
+    m_SfxBuy->SetVolume(static_cast<int>(70 * m_MasterVolume));
+    m_SfxReroll->SetVolume(static_cast<int>(62 * m_MasterVolume));
+    m_SfxWaveEnd->SetVolume(static_cast<int>(72 * m_MasterVolume));
+}
 // ShowShopIcons() removed — shop now manages its own icons via ShopScene

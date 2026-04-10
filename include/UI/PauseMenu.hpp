@@ -22,6 +22,8 @@ public:
     // Returns: 0=nothing, 1=resume, 2=quit
     int Update();
 
+    void SetVolumeText(float volumeMultiplier);
+
 private:
     void UpdateContent(const Player &player,
                        const std::vector<std::string> &ownedItems,
@@ -30,6 +32,12 @@ private:
     bool IsInQuit(glm::vec2 pt)   const;
 
     bool m_Visible = false;
+    std::shared_ptr<Util::Text> m_VolText, m_VolMinusText, m_VolPlusText;
+    std::shared_ptr<Util::GameObject> m_VolObj, m_VolMinusObj, m_VolPlusObj;
+
+    // 點擊判定
+    bool IsInVolMinus(glm::vec2 pt) const;
+    bool IsInVolPlus(glm::vec2 pt) const;
 
     std::shared_ptr<Util::GameObject> m_BgObj;
     std::shared_ptr<Util::Text>       m_TitleText;

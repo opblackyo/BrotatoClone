@@ -31,6 +31,8 @@ public:
     void RegisterRenderer(Util::Renderer &renderer);
 
 private:
+    float m_MasterVolume = 1.0f; // 1.0 代表 100%
+    void UpdateVolumes();
     // --- Wave logic ---
     void StartWave();
     void EndWave();
