@@ -248,7 +248,6 @@ void GameScene::SpawnTrees() {
         -GameConfig::ARENA_HALF_H * 0.74f, GameConfig::ARENA_HALF_H * 0.74f);
     std::uniform_real_distribution<float> scaleDist(0.34f, 0.42f);
     std::uniform_int_distribution<int> flipDist(0, 1);
-
     // Spawn one tree per call, with spacing checks to avoid clumping.
     glm::vec2 spawnPos{0.f, 0.f};
     bool foundPos = false;
