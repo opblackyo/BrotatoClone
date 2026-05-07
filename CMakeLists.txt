@@ -3,7 +3,11 @@ project(BrotatoClone)
 
 set(CMAKE_CXX_STANDARD 17)
 
-cmake_policy(SET CMP0135 NEW)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Minimum CMake policy compatibility for bundled third-party dependencies")
+
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif()
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
