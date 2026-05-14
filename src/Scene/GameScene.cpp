@@ -20,6 +20,14 @@ struct MapTheme {
     int decorSet;
 };
 
+struct WaveProfile {
+    int maxEnemies;
+    int aliveCap;
+    int maxBatch;
+    float spawnInterval;
+    std::array<int, 5> enemyWeights; // Chaser, Bruiser, Spitter, Guardian, Bomber
+};
+
 constexpr std::array<MapTheme, 6> MAP_THEMES{{
     {RESOURCE_DIR "/images/maps/bg_dirt.png", 1},
     {RESOURCE_DIR "/images/maps/bg_forest.png", 2},
@@ -28,6 +36,78 @@ constexpr std::array<MapTheme, 6> MAP_THEMES{{
     {RESOURCE_DIR "/images/maps/bg_boneyard.png", 5},
     {RESOURCE_DIR "/images/maps/bg_darklands.png", 6},
 }};
+
+WaveProfile GetWaveProfile(int wave) {
+    if (wave <= 3) {
+        return {
+            std::clamp(18 + wave * 7, 24, 42),
+            std::clamp(28 + wave * 4, 30, 44),
+            5,
+            std::max(0.72f, 1.18f - wave * 0.08f),
+            {90, 10, 0, 0, 0}
+        };
+    }
+    if (wave <= 6) {
+        return {
+            std::clamp(30 + wave * 6, 48, 66),
+            std::clamp(36 + wave * 4, 48, 62),
+            5,
+            std::max(0.62f, 1.05f - wave * 0.06f),
+            {66, 22, 12, 0, 0}
+        };
+    }
+    if (wave <= 9) {
+        return {
+            std::clamp(42 + wave * 6, 68, 88),
+            std::clamp(46 + wave * 4, 62, 76),
+            5,
+            std::max(0.56f, 0.98f - wave * 0.05f),
+            {54, 18, 28, 0, 0}
+        };
+    }
+    if (wave <= 12) {
+        return {
+            std::clamp(52 + wave * 6, 86, 104),
+            std::clamp(54 + wave * 4, 72, 84),
+            6,
+            std::max(0.50f, 0.92f - wave * 0.045f),
+            {46, 18, 22, 9, 5}
+        };
+    }
+    if (wave <= 16) {
+        return {
+            std::clamp(62 + wave * 5, 106, 128),
+            std::clamp(62 + wave * 3, 82, 92),
+            6,
+            std::max(0.46f, 0.82f - wave * 0.03f),
+            {38, 16, 20, 14, 12}
+        };
+    }
+    return {
+        std::clamp(86 + (wave - 16) * 14, 118, 152),
+        std::clamp(78 + (wave - 16) * 7, 92, 104),
+        7,
+        std::max(0.38f, 0.58f - (wave - 16) * 0.04f),
+        {30, 14, 22, 18, 16}
+    };
+}
+
+int PickEnemyType(const std::array<int, 5> &weights, std::mt19937 &rng) {
+    int total = 0;
+    for (int weight : weights)
+        total += std::max(0, weight);
+    if (total <= 0)
+        return 0;
+
+    std::uniform_int_distribution<int> rollDist(1, total);
+    int roll = rollDist(rng);
+    for (int i = 0; i < static_cast<int>(weights.size()); ++i) {
+        roll -= std::max(0, weights[i]);
+        if (roll <= 0)
+            return i;
+    }
+    return 0;
+}
 } // namespace
 
 GameScene::GameScene() {
@@ -224,12 +304,13 @@ void GameScene::StartWave() {
     m_MaxTreesThisWave = std::clamp(2 + m_CurrentWave / 5, 2, 6);
     m_FirstTreeSpawnDelay = std::max(1.8f, 3.4f - 0.06f * m_CurrentWave);
     m_TreeSpawnInterval = std::max(3.2f, 6.0f - 0.08f * m_CurrentWave);
+    const WaveProfile waveProfile = GetWaveProfile(m_CurrentWave);
     // Boss wave: only 1 enemy spawns (the boss)
     if (m_CurrentWave >= GameConfig::BOSS_WAVE)
         m_MaxEnemiesPerWave = 1;
     else
-        m_MaxEnemiesPerWave = std::clamp(10 + m_CurrentWave * 4, 14, 110);
-    m_SpawnInterval = std::max(0.55f, 1.55f - m_CurrentWave * 0.07f);
+        m_MaxEnemiesPerWave = waveProfile.maxEnemies;
+    m_SpawnInterval = waveProfile.spawnInterval;
     m_Enemies.clear();
     m_Projectiles.clear();
     m_Boss.reset();
@@ -453,6 +534,7 @@ glm::vec2 GameScene::RandomSpawnPos() const {    // Spawn just outside the arena
 void GameScene::SpawnEnemy(int forcedType) {
     glm::vec2 pos = RandomSpawnPos();
     int wave = m_CurrentWave;
+    static std::mt19937 enemyRng(std::random_device{}());
 
     // Final wave: spawn the Boss once
     if (wave >= GameConfig::BOSS_WAVE) {
@@ -465,17 +547,11 @@ void GameScene::SpawnEnemy(int forcedType) {
         return;
     }
 
-    // Regular waves: pick enemy type based on wave progress
-    // Types unlocked per wave tier:
-    // wave 1-3  : Chaser, Bruiser
-    // wave 4-7  : + Spitter
-    // wave 8-11 : + Guardian
-    // wave 12+  : + Bomber
-    int maxType = (wave >= 12) ? 5 : (wave >= 8) ? 4 : (wave >= 4) ? 3 : 2;
+    // Regular waves: pick from a profile so each phase has a clear role.
     int type = forcedType;
     if (type < 0)
-        type = (m_EnemiesSpawnedThisWave + wave) % maxType;
-    type = std::clamp(type, 0, maxType - 1);
+        type = PickEnemyType(GetWaveProfile(wave).enemyWeights, enemyRng);
+    type = std::clamp(type, 0, 4);
 
     std::shared_ptr<Enemy> enemy;
     int baseHp = 1;
@@ -533,7 +609,8 @@ void GameScene::UpdateWave(float dt) {
     // Spawn enemies
     if (m_EnemiesSpawnedThisWave < m_MaxEnemiesPerWave) {
         m_SpawnTimer += dt;
-        const int aliveEnemyCap = std::clamp(24 + m_CurrentWave * 3, 28, 90);
+        const WaveProfile waveProfile = GetWaveProfile(m_CurrentWave);
+        const int aliveEnemyCap = waveProfile.aliveCap;
         while (m_SpawnTimer >= m_SpawnInterval &&
                m_EnemiesSpawnedThisWave < m_MaxEnemiesPerWave) {
             m_SpawnTimer -= m_SpawnInterval;
@@ -542,7 +619,7 @@ void GameScene::UpdateWave(float dt) {
             if (static_cast<int>(m_Enemies.size()) >= aliveEnemyCap)
                 break;
 
-            int batchCount = std::clamp(1 + m_CurrentWave / 4, 1, 5);
+            int batchCount = std::clamp(1 + m_CurrentWave / 4, 1, waveProfile.maxBatch);
             int remaining = m_MaxEnemiesPerWave - m_EnemiesSpawnedThisWave;
             batchCount = std::min(batchCount, remaining);
 
@@ -551,10 +628,10 @@ void GameScene::UpdateWave(float dt) {
                     m_EnemiesSpawnedThisWave >= m_MaxEnemiesPerWave)
                     break;
 
-                // Batch spawns favor chasers so economy pacing feels closer
-                // to Brotato without introducing too many heavy units at once.
-                const bool forceSmall = (batchCount > 1 && i < batchCount - 1);
-                SpawnEnemy(forceSmall ? 0 : -1);
+                // Early waves deliberately flood low-HP enemies. Later waves
+                // use weighted mixes so ranged, bombers, and guardians shape movement.
+                const bool earlySwarm = (m_CurrentWave <= 3 && batchCount > 1);
+                SpawnEnemy(earlySwarm ? 0 : -1);
             }
         }
     }
@@ -1020,11 +1097,6 @@ bool GameScene::ApplyShopItem(int idx) {
                           item.effectType == "add_smg" ||
                           item.effectType == "add_knife";
 
-    if (isWeapon && !m_Player->HasWeaponSlot()) return false;
-
-    if (!m_Player->SpendGold(item.cost)) return false;
-    m_OwnedItems.push_back(item.name); // track for pause menu
-
     // All items are passive stat items (no direct-heal or weapon adds in shop)
     const std::string &t = item.effectType;
     const int          v = item.effectValue;
@@ -1036,12 +1108,16 @@ bool GameScene::ApplyShopItem(int idx) {
         else if (t == "add_smg")     newWeapon = std::make_shared<SMG>();
         else if (t == "add_knife")   newWeapon = std::make_shared<Knife>();
 
-        if (newWeapon) {
-            m_Player->AddWeapon(newWeapon);
-            SyncWeaponsToRenderer();
-        }
+        if (!newWeapon || !m_Player->CanAcceptWeapon(*newWeapon)) return false;
+        if (!m_Player->SpendGold(item.cost)) return false;
+        m_Player->AddWeapon(newWeapon);
+        m_OwnedItems.push_back(newWeapon->GetName());
+        SyncWeaponsToRenderer();
         return true;
     }
+
+    if (!m_Player->SpendGold(item.cost)) return false;
+    m_OwnedItems.push_back(item.name); // track for pause menu
 
     if (t == "hp_up") {
         m_Player->SetMaxHp(m_Player->GetMaxHp() + v);
@@ -1083,8 +1159,6 @@ void GameScene::BuyWeapon(int weaponIdx) {
     const auto &weapItems = m_ShopScene.GetWeaponItems();
     if (weaponIdx < 0 || weaponIdx >= static_cast<int>(weapItems.size())) return;
     const ShopItem &witem = weapItems[weaponIdx];
-    if (!m_Player->HasWeaponSlot()) return;   // full — can't buy
-    if (!m_Player->SpendGold(witem.cost)) return;
 
     std::shared_ptr<Weapon> newWeapon;
     if      (witem.effectType == "add_pistol")  newWeapon = std::make_shared<Pistol>();
@@ -1092,13 +1166,15 @@ void GameScene::BuyWeapon(int weaponIdx) {
     else if (witem.effectType == "add_smg")     newWeapon = std::make_shared<SMG>();
     else if (witem.effectType == "add_knife")   newWeapon = std::make_shared<Knife>();
 
-    if (newWeapon) {
-        m_Player->AddWeapon(newWeapon);
-        m_SfxBuy->Play();
-        SyncWeaponsToRenderer();
-        m_ShopScene.RemoveWeaponItem(weaponIdx);
-        m_ShopScene.Show(*m_Player);
-    }
+    if (!newWeapon || !m_Player->CanAcceptWeapon(*newWeapon)) return;
+    if (!m_Player->SpendGold(witem.cost)) return;
+
+    m_Player->AddWeapon(newWeapon);
+    m_OwnedItems.push_back(newWeapon->GetName());
+    m_SfxBuy->Play();
+    SyncWeaponsToRenderer();
+    m_ShopScene.RemoveWeaponItem(weaponIdx);
+    m_ShopScene.Show(*m_Player);
 }
 
 // Spawn a floating damage number at position

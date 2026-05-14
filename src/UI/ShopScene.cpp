@@ -24,6 +24,14 @@ static bool IsWeaponEffect(const std::string &effectType) {
            effectType == "add_smg" || effectType == "add_knife";
 }
 
+static Util::Color WeaponTierColor(int tier) {
+    switch (tier) {
+    case 1: return Util::Color::FromRGB(225, 225, 225);
+    case 2: return Util::Color::FromRGB(95, 220, 125);
+    default:return Util::Color::FromRGB(95, 170, 255);
+    }
+}
+
 const float ShopScene::CARD_X[4]   = {-435.f, -200.f, +35.f, +270.f};
 const float ShopScene::WEAPON_X[2] = {-310.f,  -60.f};
 
@@ -102,10 +110,10 @@ static const std::vector<ShopItem> ALL_ITEMS = {
 // ── Weapon catalog shown in shop (4 available weapons, 2 picked each wave) ──
 static const std::vector<ShopItem> ALL_WEAPONS = {
     //  name        description                       cost  effectType     val  iconPath
-    {"Pistol",   "Ranged: Rapid\n+5 dmg  0.24s",      10, "add_pistol",   0,  RESOURCE_DIR "/images/weapons/pistol.png"},
-    {"Shotgun",  "Ranged: Close spread\n+9x5  1.2s",   20, "add_shotgun",  0,  RESOURCE_DIR "/images/weapons/shotgun.png"},
-    {"SMG",      "Ranged: Rapid fire\n+5 dmg  0.22s",  40, "add_smg",      0,  RESOURCE_DIR "/images/weapons/smg.png"},
-    {"Knife",    "Melee: Swift slash\n+22 dmg  0.5s",  15, "add_knife",    0,  RESOURCE_DIR "/images/weapons/knife.png"},
+    {"Pistol",   "Tier I\nRapid: 5 dmg  0.24s",        10, "add_pistol",   0,  RESOURCE_DIR "/images/weapons/pistol.png"},
+    {"Shotgun",  "Tier I\nSpread: 9x5  1.2s",          20, "add_shotgun",  0,  RESOURCE_DIR "/images/weapons/shotgun.png"},
+    {"SMG",      "Tier I\nBurst: 5 dmg  0.22s",        40, "add_smg",      0,  RESOURCE_DIR "/images/weapons/smg.png"},
+    {"Knife",    "Tier I\nSlash: 22 dmg  0.5s",        15, "add_knife",    0,  RESOURCE_DIR "/images/weapons/knife.png"},
 };
 
 // ── Helper to make (Text, GameObject) pairs ───────────────────────────────────
@@ -390,8 +398,13 @@ void ShopScene::RefreshCardDisplay() {
         CardUI &c = m_Cards[i];
         if (i < static_cast<int>(m_Items.size())) {
             const ShopItem &it = m_Items[i];
-            c.nameText->SetText(it.name);
-            c.typeText->SetText(typeTag(it.effectType));
+            const bool isWeapon = IsWeaponEffect(it.effectType);
+            c.nameText->SetText(isWeapon ? it.name + " I" : it.name);
+            c.nameText->SetColor(isWeapon ? WeaponTierColor(1)
+                                           : Util::Color::FromRGB(255, 230, 130));
+            c.typeText->SetText(isWeapon ? "Weapon - Common" : typeTag(it.effectType));
+            c.typeText->SetColor(isWeapon ? WeaponTierColor(1)
+                                           : Util::Color::FromRGB(140, 200, 140));
             c.descText->SetText(it.description);
             c.costText->SetText("$" + std::to_string(it.cost) +
                                 "  [" + std::to_string(i + 1) + "]");
@@ -419,8 +432,10 @@ void ShopScene::RefreshWeaponCardDisplay() {
         CardUI &c = m_WeaponCards[i];
         if (i < static_cast<int>(m_WeaponItems.size())) {
             const ShopItem &it = m_WeaponItems[i];
-            c.nameText->SetText(it.name);
-            c.typeText->SetText("Weapon");
+            c.nameText->SetText(it.name + " I");
+            c.nameText->SetColor(WeaponTierColor(1));
+            c.typeText->SetText("Weapon - Common");
+            c.typeText->SetColor(WeaponTierColor(1));
             c.descText->SetText(it.description);
             c.costText->SetText("$" + std::to_string(it.cost) +
                                 "  [Q" + std::to_string(i + 1) + "]");
@@ -476,6 +491,7 @@ void ShopScene::UpdateWeaponSlots(const Player &player) {
     const bool canSell = player.CanSellWeapon();
     for (int i = 0; i < MAX_WSLOTS; i++) {
         if (i < static_cast<int>(weps.size())) {
+            m_WeapSlots[i].txt->SetColor(WeaponTierColor(weps[i]->GetLevel()));
             if (canSell) {
                 const int refund = player.GetWeaponSellValue(i);
                 m_WeapSlots[i].txt->SetText(weps[i]->GetName() + "  [Sell $" + std::to_string(refund) + "]");
@@ -483,6 +499,7 @@ void ShopScene::UpdateWeaponSlots(const Player &player) {
                 m_WeapSlots[i].txt->SetText(weps[i]->GetName() + "  [Locked]");
             }
         } else {
+            m_WeapSlots[i].txt->SetColor(Util::Color::FromRGB(100, 100, 100));
             m_WeapSlots[i].txt->SetText("Empty");
         }
     }

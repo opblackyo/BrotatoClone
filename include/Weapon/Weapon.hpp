@@ -19,15 +19,24 @@ public:
     bool        IsRanged()      const { return m_Type != WeaponType::KNIFE; }
     int         GetBaseDamage() const { return m_Damage; }
     float       GetRange()      const { return m_Range; }
-    std::string GetName()       const { return m_Name; }
+    std::string GetBaseName()   const { return m_Name; }
+    std::string GetName()       const { return m_Name + " " + GetTierName(); }
     int         GetLevel()      const { return m_Level; }
+    bool        CanLevelUp()    const { return m_Level < MAX_LEVEL; }
+    std::string GetTierName() const {
+        switch (m_Level) {
+        case 1: return "I";
+        case 2: return "II";
+        default: return "III";
+        }
+    }
 
     // Merge/upgrade: +50% damage, -20% cooldown per level
     void LevelUp() {
+        if (!CanLevelUp()) return;
         m_Level++;
         m_Damage   = static_cast<int>(m_Damage * 1.5f);
         m_Cooldown = std::max(0.08f, m_Cooldown * 0.8f);
-        m_Name += " *";  // mark each upgrade level
     }
 
     float GetCooldownProgress() const {
@@ -49,6 +58,8 @@ protected:
     float       m_Timer = 0.f;
     std::string m_Name  = "Weapon";
     int         m_Level = 1;
+
+    static constexpr int MAX_LEVEL = 3;
 };
 
 class Pistol : public Weapon {

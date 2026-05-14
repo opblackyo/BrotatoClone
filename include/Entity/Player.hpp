@@ -12,11 +12,12 @@ public:
     bool Update(float dt) override;
 
     // Weapons (max 6 slots)
-    void AddWeapon(std::shared_ptr<Weapon> weapon);
+    bool AddWeapon(std::shared_ptr<Weapon> weapon);
     std::shared_ptr<Weapon> SellWeaponAt(int index);
     const std::vector<std::shared_ptr<Weapon>> &GetWeapons() const { return m_Weapons; }
     int  GetWeaponCount() const { return static_cast<int>(m_Weapons.size()); }
     bool HasWeaponSlot()  const { return m_Weapons.size() < MAX_WEAPON_SLOTS; }
+    bool CanAcceptWeapon(const Weapon &weapon) const;
     bool CanSellWeapon()  const { return m_Weapons.size() > 1; }
     int  GetWeaponSellValue(int index) const;
 
@@ -91,6 +92,7 @@ public:
 private:
     void HandleMovement(float dt);
     void ClampToArena();
+    void AutoMergeWeapons();
 
     int m_XP = 0;
     int m_MaxXP = 20; // 第一級升級需要的經驗值

@@ -30,6 +30,10 @@ https://github.com/ntut-open-source-club/ptsd-template
    - Shotgun
    - SMG
    - Knife
+- Weapon tier and merging system:
+   - Two identical Tier I weapons merge into Tier II
+   - Two identical Tier II weapons merge into Tier III
+   - Higher tiers increase damage and reduce cooldown
 - Enemy roster progression:
    - Chaser
    - Bruiser
@@ -42,14 +46,123 @@ https://github.com/ntut-open-source-club/ptsd-template
    - Shop phase with reroll, purchases, and weapon selling
 - Economy and sustain systems:
    - Material orbs (gold drops)
+   - Pickup range and wave-end material auto-collection
    - Tree destruction and fruit healing
    - Lifesteal, regen, armor, dodge, crit, and other scaling stats
+- Random arena themes:
+   - Dirt
+   - Forest
+   - Volcano
+   - Dreamy lands
+   - Boneyard
+   - Darklands
 - UI and feedback:
    - HUD (HP, gold, wave, timer)
    - Boss HP bar
    - Pause menu with full stat snapshot and owned item list
    - Damage numbers, hit/death effects, muzzle flashes
    - SFX for shooting, hits, purchases, rerolls, and wave transitions
+
+## Gameplay Systems
+
+### Combat
+
+The player moves manually while weapons fire automatically at enemies or trees
+within range. Weapon targeting prioritizes enemies by default. Holding T forces
+weapons to prioritize trees when a tree is in range.
+
+Enemies drop material orbs when killed. These orbs grant both gold and XP when
+picked up. Orbs magnetize toward the player inside pickup range, and any
+remaining orbs are automatically pulled in at the end of each wave before the
+stat/shop phase begins.
+
+### Weapons and Merging
+
+Weapons have three tiers:
+
+- Tier I: base weapon
+- Tier II: made by merging two identical Tier I weapons
+- Tier III: made by merging two identical Tier II weapons
+
+Buying a weapon automatically attempts to merge it with matching owned weapons.
+If all six weapon slots are full, the player can still buy a weapon when that
+weapon can immediately merge with an existing same-type, same-tier weapon.
+
+Tier upgrades currently improve the weapon directly:
+
+- Damage increases by about 50% per tier
+- Cooldown becomes about 20% faster per tier
+
+Weapon tiers are color-coded in the shop/weapon list:
+
+- Tier I: white
+- Tier II: green
+- Tier III: blue
+
+### Shop and Progression
+
+After each normal wave, the player receives stat upgrade choices. Strong wave
+performance can grant two stat picks instead of one.
+
+The shop then opens, allowing the player to:
+
+- Buy item cards
+- Buy weapon cards
+- Reroll shop choices
+- Sell owned weapons
+- Start the next wave
+
+There is currently no save/load system. Each run is a standalone session.
+
+## Wave Design
+
+The run uses 20 waves. Normal waves last 30 seconds, and wave 20 is the final
+boss fight.
+
+Enemy spawning is controlled by wave profiles rather than a flat random mix.
+Each profile defines total enemies, live enemy cap, spawn speed, batch size, and
+enemy type weights.
+
+Current wave pacing:
+
+- Waves 1-3: early swarm
+   - Mostly Chasers
+   - Low HP enemy flood
+   - Small amount of Bruisers
+- Waves 4-6: first mixed pressure
+   - Chasers and Bruisers continue
+   - Spitters start appearing
+   - Player begins needing more movement awareness
+- Waves 7-9: ranged pressure
+   - Spitter weight increases
+   - Player is pushed to dodge projectiles while clearing melee enemies
+- Waves 10-12: durable and explosive enemies
+   - Guardians and Bombers are introduced
+   - Enemy mix starts testing damage output and positioning
+- Waves 13-16: full mixed waves
+   - Chasers, Bruisers, Spitters, Guardians, and Bombers all appear
+   - Spawn rate and live enemy cap are higher
+- Waves 17-19: boss preparation pressure test
+   - Faster spawns
+   - Heavier Guardian/Bomber presence
+   - Designed to test whether the build can survive the boss transition
+- Wave 20: boss
+   - One boss enemy
+   - Boss has ranged multi-shot attacks and a second phase at low HP
+
+## Map System
+
+The arena background is randomly selected at the start of each wave. The system
+uses Brotato-style single-tone arena themes with sparse ground decorations
+rather than a full map background image.
+
+Each arena theme contains:
+
+- A large solid-color background image
+- Subtle shading/noise
+- A small number of non-overlapping ground decoration sprites
+
+Decorations are visual only and do not block movement.
 
 ## Controls
 

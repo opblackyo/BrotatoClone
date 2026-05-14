@@ -71,9 +71,48 @@ void Player::ClampToArena() {
     t.y = std::clamp(t.y, -GameConfig::ARENA_HALF_H, GameConfig::ARENA_HALF_H);
 }
 
-void Player::AddWeapon(std::shared_ptr<Weapon> weapon) {
+bool Player::CanAcceptWeapon(const Weapon &weapon) const {
     if (HasWeaponSlot())
-        m_Weapons.push_back(std::move(weapon));
+        return true;
+
+    for (const auto &owned : m_Weapons) {
+        if (owned->GetType() == weapon.GetType() &&
+            owned->GetLevel() == weapon.GetLevel() &&
+            owned->CanLevelUp()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Player::AddWeapon(std::shared_ptr<Weapon> weapon) {
+    if (!weapon || !CanAcceptWeapon(*weapon))
+        return false;
+
+    m_Weapons.push_back(std::move(weapon));
+    AutoMergeWeapons();
+    return true;
+}
+
+void Player::AutoMergeWeapons() {
+    bool merged = true;
+    while (merged) {
+        merged = false;
+        for (int i = 0; i < static_cast<int>(m_Weapons.size()) && !merged; ++i) {
+            if (!m_Weapons[i]->CanLevelUp())
+                continue;
+
+            for (int j = i + 1; j < static_cast<int>(m_Weapons.size()); ++j) {
+                if (m_Weapons[i]->GetType() == m_Weapons[j]->GetType() &&
+                    m_Weapons[i]->GetLevel() == m_Weapons[j]->GetLevel()) {
+                    m_Weapons[i]->LevelUp();
+                    m_Weapons.erase(m_Weapons.begin() + j);
+                    merged = true;
+                    break;
+                }
+            }
+        }
+    }
 }
 
 std::shared_ptr<Weapon> Player::SellWeaponAt(int index) {
