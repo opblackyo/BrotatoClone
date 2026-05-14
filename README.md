@@ -1,5 +1,7 @@
 # BrotatoClone
 
+[English](README.md) | [繁體中文](README.zh-TW.md)
+
 A Brotato-inspired survivor game implemented with C++17 on top of the PTSD
 framework.
 
