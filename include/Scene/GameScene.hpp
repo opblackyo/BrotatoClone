@@ -13,6 +13,7 @@
 
 enum class GameSceneState {
     WAVE,        // Active wave - enemies attacking
+    WAVE_END_COLLECT, // Auto-pull remaining materials before rewards
     STAT_SELECT, // Pick a free stat upgrade after each wave
     SHOPPING,    // Between waves - item shop
     PAUSED,      // ESC pause overlay
@@ -31,10 +32,14 @@ public:
     void RegisterRenderer(Util::Renderer &renderer);
 
 private:
+    struct XpOrb;
+
     float m_MasterVolume = 1.0f; // 1.0 代表 100%
     void UpdateVolumes();
     // --- Wave logic ---
     void StartWave();
+    void BeginWaveEndCollect();
+    void UpdateWaveEndCollect(float dt);
     void EndWave();
     void SpawnEnemy(int forcedType = -1);
     glm::vec2 RandomSpawnPos() const;
@@ -44,10 +49,14 @@ private:
     void UpdateProjectiles(float dt);
     void CheckCollisions();
     void CleanupDead();
+    void UpdateMaterialOrbs(float dt, bool forceCollect);
+    void CollectMaterialOrb(XpOrb &orb);
     bool ApplyShopItem(int idx);   // returns true if purchase succeeded
     void BuyWeapon(int weaponIdx);  // buy weapon from shop
     void SpawnDamageNumber(glm::vec2 pos, int damage, bool isCrit);
     void SpawnTrees();
+    void SelectRandomMap();
+    void ClearMapDecor();
 
     // --- Rendering helpers ---
     void SyncRendererObjects();
@@ -65,6 +74,7 @@ private:
     GameSceneState m_State = GameSceneState::WAVE;
     int m_CurrentWave = 0;
     float m_WaveTimer = 0.f;
+    float m_WaveEndCollectTimer = 0.f;
 
     // Spawning
     float m_SpawnTimer = 0.f;
@@ -81,6 +91,7 @@ private:
 
     // Background
     std::shared_ptr<Util::GameObject> m_Background;
+    std::vector<std::shared_ptr<Util::GameObject>> m_MapDecor;
 
     // Weapon GameObjects currently tracked in renderer
     std::vector<std::shared_ptr<Weapon>> m_RegisteredWeapons;
@@ -149,6 +160,7 @@ private:
         glm::vec2 pos{0.f, 0.f};
         int       value = 1;  // gold/materials to award on pickup
         bool      alive = true;
+        bool      forceCollect = false;
     };
     std::vector<Tree>  m_Trees;
     std::vector<Fruit> m_Fruits;

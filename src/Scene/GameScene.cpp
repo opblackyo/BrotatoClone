@@ -9,18 +9,34 @@
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
+#include <array>
 
 static constexpr float WIN_W = 1280.f;
 static constexpr float WIN_H = 720.f;
+
+namespace {
+struct MapTheme {
+    const char *background;
+    int decorSet;
+};
+
+constexpr std::array<MapTheme, 6> MAP_THEMES{{
+    {RESOURCE_DIR "/images/maps/bg_dirt.png", 1},
+    {RESOURCE_DIR "/images/maps/bg_forest.png", 2},
+    {RESOURCE_DIR "/images/maps/bg_volcano.png", 3},
+    {RESOURCE_DIR "/images/maps/bg_dreamy.png", 4},
+    {RESOURCE_DIR "/images/maps/bg_boneyard.png", 5},
+    {RESOURCE_DIR "/images/maps/bg_darklands.png", 6},
+}};
+} // namespace
 
 GameScene::GameScene() {
     m_Player = std::make_shared<Player>();
 
     m_Background = std::make_shared<Util::GameObject>(
         std::make_shared<Util::Image>(
-            RESOURCE_DIR "/images/backgrounds/arena_bg.png"),
-        0.f);
-    m_Background->m_Transform.scale = {WIN_W / 512.f, WIN_H / 512.f};
+            RESOURCE_DIR "/images/maps/bg_dirt.png"),
+        -10.f);
 
     // Add HUD and shop objects to renderer immediately
     for (auto &obj : m_HUD.GetObjects())
@@ -83,6 +99,10 @@ GameSceneState GameScene::Update(float dt) {
     switch (m_State) {
     case GameSceneState::WAVE:
         UpdateWave(dt);
+        break;
+
+    case GameSceneState::WAVE_END_COLLECT:
+        UpdateWaveEndCollect(dt);
         break;
 
     case GameSceneState::STAT_SELECT: {
@@ -173,7 +193,8 @@ GameSceneState GameScene::Update(float dt) {
     // const bool showGameplayHud =
     //     (m_State == GameSceneState::WAVE) ||
     //     (m_State == GameSceneState::PAUSED && m_PrePauseState == GameSceneState::WAVE);
-    const bool showGameplayHud = (m_State == GameSceneState::WAVE);
+    const bool showGameplayHud = (m_State == GameSceneState::WAVE ||
+                                  m_State == GameSceneState::WAVE_END_COLLECT);
     m_HUD.SetGameplayVisible(showGameplayHud);
 
     m_Renderer.Update();
@@ -181,6 +202,8 @@ GameSceneState GameScene::Update(float dt) {
 }
 
 void GameScene::StartWave() {
+    SelectRandomMap();
+
     // Clean up renderer from previous wave
     for (auto &e : m_Enemies)     m_Renderer.RemoveChild(e);
     for (auto &p : m_Projectiles) m_Renderer.RemoveChild(p);
@@ -215,24 +238,143 @@ void GameScene::StartWave() {
     SyncWeaponsToRenderer();
 }
 
-void GameScene::EndWave() {
-    // Auto-collect any remaining gold/material orbs at wave end.
-    int autoCollectedGold = 0;
+void GameScene::ClearMapDecor() {
+    for (auto &obj : m_MapDecor) {
+        if (obj) m_Renderer.RemoveChild(obj);
+    }
+    m_MapDecor.clear();
+}
+
+void GameScene::SelectRandomMap() {
+    static std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<int> themeDist(0, static_cast<int>(MAP_THEMES.size()) - 1);
+    const MapTheme &theme = MAP_THEMES[themeDist(rng)];
+
+    ClearMapDecor();
+
+    if (m_Background) {
+        m_Renderer.RemoveChild(m_Background);
+    }
+    m_Background = std::make_shared<Util::GameObject>(
+        std::make_shared<Util::Image>(theme.background), -10.f);
+    m_Renderer.AddChild(m_Background);
+
+    std::uniform_real_distribution<float> rx(
+        -GameConfig::ARENA_HALF_W * 0.96f, GameConfig::ARENA_HALF_W * 0.96f);
+    std::uniform_real_distribution<float> ry(
+        -GameConfig::ARENA_HALF_H * 0.92f, GameConfig::ARENA_HALF_H * 0.92f);
+    std::uniform_real_distribution<float> scaleDist(0.42f, 0.72f);
+    std::uniform_real_distribution<float> rotDist(-0.18f, 0.18f);
+    std::uniform_int_distribution<int> decorDist(0, 10);
+    std::uniform_int_distribution<int> flipDist(0, 1);
+
+    constexpr int decorCount = 14;
+    constexpr int maxPlaceTries = 24;
+    constexpr float minDecorDistance = 142.f;
+    constexpr float minCenterDistance = 96.f;
+    std::vector<glm::vec2> placedDecor;
+    placedDecor.reserve(decorCount);
+    m_MapDecor.reserve(decorCount);
+    for (int i = 0; i < decorCount; ++i) {
+        glm::vec2 pos{0.f, 0.f};
+        bool foundSpot = false;
+        for (int tries = 0; tries < maxPlaceTries && !foundSpot; ++tries) {
+            glm::vec2 candidate{rx(rng), ry(rng)};
+            if (glm::length(candidate) < minCenterDistance)
+                continue;
+
+            bool tooClose = false;
+            for (const auto &existing : placedDecor) {
+                if (glm::length(candidate - existing) < minDecorDistance) {
+                    tooClose = true;
+                    break;
+                }
+            }
+            if (tooClose)
+                continue;
+
+            pos = candidate;
+            foundSpot = true;
+        }
+        if (!foundSpot)
+            continue;
+
+        const int decorIdx = decorDist(rng);
+        const std::string path = std::string(RESOURCE_DIR "/images/maps/decor_") +
+                                 std::to_string(theme.decorSet) + "_" +
+                                 std::to_string(decorIdx) + ".png";
+        auto obj = std::make_shared<Util::GameObject>(
+            std::make_shared<Util::Image>(path), -8.f);
+        const float scale = scaleDist(rng);
+        obj->m_Transform.translation = pos;
+        obj->m_Transform.scale = {
+            flipDist(rng) == 0 ? scale : -scale,
+            scale
+        };
+        obj->m_Transform.rotation = rotDist(rng);
+        m_Renderer.AddChild(obj);
+        m_MapDecor.push_back(obj);
+        placedDecor.push_back(pos);
+    }
+}
+
+void GameScene::BeginWaveEndCollect() {
+    m_WaveEndCollectTimer = 0.f;
+    m_WaveTimer = 0.f;
+    m_SfxWaveEnd->Play();
+
+    for (auto &e : m_Enemies) {
+        if (e) m_Renderer.RemoveChild(e);
+    }
+    m_Enemies.clear();
+    m_Boss.reset();
+    m_HUD.HideBossBar();
+
+    for (auto &p : m_Projectiles) {
+        if (p) m_Renderer.RemoveChild(p);
+    }
+    m_Projectiles.clear();
+
+    for (auto &t : m_Trees) {
+        if (t.obj) m_Renderer.RemoveChild(t.obj);
+    }
+    for (auto &f : m_Fruits) {
+        if (f.obj) m_Renderer.RemoveChild(f.obj);
+    }
+    m_Trees.clear();
+    m_Fruits.clear();
+
     for (auto &orb : m_XpOrbs) {
         if (!orb.alive) continue;
-        autoCollectedGold += orb.value;
-        orb.alive = false;
-        if (orb.obj) {
-            orb.obj->SetVisible(false);
-            m_Renderer.RemoveChild(orb.obj);
-        }
+        orb.forceCollect = true;
+        if (orb.obj) orb.obj->SetZIndex(7.2f);
     }
-    m_XpOrbs.clear();
-    if (autoCollectedGold > 0)
-        m_Player->AddGold(autoCollectedGold);
 
+    m_State = GameSceneState::WAVE_END_COLLECT;
+}
+
+void GameScene::UpdateWaveEndCollect(float dt) {
+    m_WaveEndCollectTimer += dt;
+    m_Player->Update(dt);
+    UpdateMaterialOrbs(dt, true);
+
+    m_HUD.Update(m_Player->GetHp(), m_Player->GetMaxHp(),
+                 m_Player->GetGold(), m_CurrentWave,
+                 GameConfig::TOTAL_WAVES, m_WaveTimer,
+                 m_Player->GetXP(), m_Player->GetMaxXP(), m_Player->GetLevel());
+
+    if (m_XpOrbs.empty() || m_WaveEndCollectTimer >= 1.25f) {
+        for (auto &orb : m_XpOrbs) {
+            if (orb.alive)
+                CollectMaterialOrb(orb);
+        }
+        m_XpOrbs.clear();
+        EndWave();
+    }
+}
+
+void GameScene::EndWave() {
     m_Player->AddGold(GameConfig::GOLD_PER_WAVE + m_CurrentWave * 2);
-    m_SfxWaveEnd->Play();
     // Level-up: 2 stat picks if player killed >=75% of enemies this wave
     int picks = (m_KillsThisWave >= m_MaxEnemiesPerWave * 3 / 4) ? 2 : 1;
     m_KillsThisWave = 0;
@@ -664,35 +806,7 @@ void GameScene::UpdateWave(float dt) {
     m_Fruits.erase(std::remove_if(m_Fruits.begin(), m_Fruits.end(),
         [](const Fruit &f) { return !f.alive; }), m_Fruits.end());
 
-    // XP/Material orb pickup: auto-magnet when close, like Brotato
-    // Pickup radius = player collision radius + base pickup range
-    // (larger pickup range = harvesting stat in real Brotato;
-    //  here we use a fixed 80px + 20px per harvesting level approximation)
-    const float pickupRange = 80.f + m_Player->GetCollisionRadius()
-                              + (m_Player->GetHarvesting() - 1.f) * 60.f;
-    for (auto &orb : m_XpOrbs) {
-        if (!orb.alive) continue;
-        float dist = glm::length(orb.pos - playerPos);
-        // Magnet: move toward player if within range
-        if (dist < pickupRange) {
-            glm::vec2 dir = playerPos - orb.pos;
-            float speed = 300.f * (1.f - dist / pickupRange) + 60.f;
-            orb.pos += glm::normalize(dir) * speed * dt;
-            orb.obj->m_Transform.translation = orb.pos;
-            dist = glm::length(orb.pos - playerPos);
-        }
-        // Collect when touching player
-        if (dist < m_Player->GetCollisionRadius()) {
-            orb.alive = false;
-            orb.obj->SetVisible(false);
-            m_Renderer.RemoveChild(orb.obj);
-            m_Player->AddGold(orb.value);
-
-            m_Player->AddXP(orb.value);
-        }
-    }
-    m_XpOrbs.erase(std::remove_if(m_XpOrbs.begin(), m_XpOrbs.end(),
-        [](const XpOrb &o) { return !o.alive; }), m_XpOrbs.end());
+    UpdateMaterialOrbs(dt, false);
 
     // Update HUD
     m_HUD.Update(m_Player->GetHp(), m_Player->GetMaxHp(),
@@ -719,8 +833,51 @@ void GameScene::UpdateWave(float dt) {
                     (m_EnemiesSpawnedThisWave >= m_MaxEnemiesPerWave &&
                      m_Enemies.empty()));
     if (allDone) {
-        EndWave();
+        BeginWaveEndCollect();
     }
+}
+
+void GameScene::UpdateMaterialOrbs(float dt, bool forceCollect) {
+    const glm::vec2 playerPos = m_Player->GetPos();
+    const float pickupRange = 82.f + m_Player->GetCollisionRadius()
+                              + std::max(0.f, m_Player->GetHarvesting() - 1.f) * 70.f;
+
+    for (auto &orb : m_XpOrbs) {
+        if (!orb.alive) continue;
+
+        const bool pulling = forceCollect || orb.forceCollect;
+        float dist = glm::length(orb.pos - playerPos);
+        if (pulling || dist < pickupRange) {
+            glm::vec2 dir = playerPos - orb.pos;
+            const float len = glm::length(dir);
+            if (len > 0.001f) {
+                const float t = pulling ? 1.f : std::clamp(1.f - dist / pickupRange, 0.f, 1.f);
+                const float speed = pulling ? 980.f + 300.f * m_WaveEndCollectTimer
+                                            : 85.f + 420.f * t;
+                orb.pos += (dir / len) * std::min(speed * dt, len);
+                if (orb.obj)
+                    orb.obj->m_Transform.translation = orb.pos;
+                dist = glm::length(orb.pos - playerPos);
+            }
+        }
+
+        if (dist < m_Player->GetCollisionRadius() + 4.f)
+            CollectMaterialOrb(orb);
+    }
+
+    m_XpOrbs.erase(std::remove_if(m_XpOrbs.begin(), m_XpOrbs.end(),
+        [](const XpOrb &o) { return !o.alive; }), m_XpOrbs.end());
+}
+
+void GameScene::CollectMaterialOrb(XpOrb &orb) {
+    if (!orb.alive) return;
+    orb.alive = false;
+    if (orb.obj) {
+        orb.obj->SetVisible(false);
+        m_Renderer.RemoveChild(orb.obj);
+    }
+    m_Player->AddGold(orb.value);
+    m_Player->AddXP(orb.value);
 }
 
 void GameScene::UpdateProjectiles(float dt) {
@@ -817,11 +974,13 @@ void GameScene::CleanupDead() {
                                           m_DeathFX.push_back({fx, 0.4f});
 
                                           // Spawn XP/material orb(s) — green drops like Brotato
-                                          int goldDropped = static_cast<int>(
-                                              e->GetGoldValue() * m_Player->GetHarvesting());
+                                          static std::mt19937 dropRng(std::random_device{}());
+                                          std::uniform_real_distribution<float> dropSpread(-13.f, 13.f);
+                                          int goldDropped = std::max(1, static_cast<int>(
+                                              std::round(e->GetGoldValue() * m_Player->GetHarvesting())));
                                           // Drop 1 orb per enemy; larger enemies drop bigger value
                                           XpOrb orb;
-                                          orb.pos   = e->GetPos();
+                                          orb.pos   = e->GetPos() + glm::vec2(dropSpread(dropRng), dropSpread(dropRng));
                                           orb.value = goldDropped;
                                           orb.obj   = std::make_shared<Util::GameObject>(
                                               std::make_shared<Util::Image>(
